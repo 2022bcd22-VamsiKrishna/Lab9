@@ -1,0 +1,61 @@
+name: ML Pipeline with DVC
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  train-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Pull Data with DVC
+        run: |
+          dvc pull
+
+      - name: Train Model
+        run: |
+          python src/train.py
+
+      - name: Publish Metrics to GitHub Summary
+        run: |
+          echo "### Training Results (Vamsi Krishna - 2022BCD0022)" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Dataset Size | $(jq -r '."Dataset size"' metrics.json) |" >> $GITHUB_STEP_SUMMARY
+          echo "| RMSE | $(jq -r '.RMSE' metrics.json) |" >> $GITHUB_STEP_SUMMARY
+          echo "| R² Score | $(jq -r '.R2' metrics.json) |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: true
+          tags: your_dockerhub_username/housing-model:latest
+          # REPLACE 'your_dockerhub_username' above!
