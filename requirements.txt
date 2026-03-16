@@ -2,6 +2,3 @@ pandas
 scikit-learn
 fastapi
 uvicorn
-boto3
-dvc
-dvc-s3
