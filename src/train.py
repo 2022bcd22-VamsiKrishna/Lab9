@@ -3,39 +3,51 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
+import mlflow
+import mlflow.sklearn
 import json
 
 def train():
-    df = pd.read_csv('data/housing.csv')
+    # 1. Connect to your local MLflow server on port 8081
+    mlflow.set_tracking_uri("http://localhost:8081")
     
-    df = df.dropna()
-    
-    df = pd.get_dummies(df, columns=['ocean_proximity'])
+    # 2. STRICT IDENTITY REQUIREMENT: Your Name and Roll Number
+    mlflow.set_experiment("Vamsi_2022BCD0022_Experiment")
 
-    X = df.drop('median_house_value', axis=1)
-    y = df['median_house_value']
+    # 3. Start the MLflow Run
+    with mlflow.start_run(run_name="RandomForest_Run1"):
+        df = pd.read_csv('data/housing.csv')
+        df = df.dropna()
+        df = pd.get_dummies(df, columns=['ocean_proximity'])
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+        X = df.drop('median_house_value', axis=1)
+        y = df['median_house_value']
 
-    model = RandomForestRegressor(n_estimators=100, random_state=42)
-    model.fit(X_train, y_train)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    predictions = model.predict(X_test)
-    rmse = np.sqrt(mean_squared_error(y_test, predictions))
-    r2 = r2_score(y_test, predictions)
+        # Log Parameter
+        n_estimators = 100
+        mlflow.log_param("n_estimators", n_estimators)
 
-    metrics = {
-        "Dataset size": len(df),
-        "RMSE": rmse,
-        "R2": r2
-    }
-    
-    print(f"Dataset Size: {len(df)}")
-    print(f"RMSE: {rmse}")
-    print(f"R2 Score: {r2}")
+        model = RandomForestRegressor(n_estimators=n_estimators, random_state=42)
+        model.fit(X_train, y_train)
 
-    with open('metrics.json', 'w') as f:
-        json.dump(metrics, f)
+        predictions = model.predict(X_test)
+        rmse = np.sqrt(mean_squared_error(y_test, predictions))
+        r2 = r2_score(y_test, predictions)
+
+        # Log Metrics
+        mlflow.log_metric("Dataset_size", len(df))
+        mlflow.log_metric("RMSE", rmse)
+        mlflow.log_metric("R2", r2)
+
+        # Log Model Artifact
+        mlflow.sklearn.log_model(model, "random_forest_model")
+
+        print(f"Dataset Size: {len(df)}")
+        print(f"RMSE: {rmse}")
+        print(f"R2 Score: {r2}")
+        print("Logged to MLflow successfully!")
 
 if __name__ == '__main__':
     train()
